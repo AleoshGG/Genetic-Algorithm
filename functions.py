@@ -31,7 +31,9 @@ class SystemSolution:
 
         return self.a_interval + (index * self.system_resolution)
 
-
+    # Funión para convertir cadena binaria en entero
+    def binary_to_int(self, value) -> int:
+        return int(value, 2)
         
 
 
