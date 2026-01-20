@@ -154,18 +154,40 @@ class GeneticAlgorithm:
         next_generation = []
 
         best_individual = evaluated[0]
-        next_generation.append(best_individual[0])
+        next_generation.append(best_individual[0]) 
 
         evaluated.pop(0)
 
-        while len(next_generation) < max_pup and evaluated:
+        # Dividir en tres partes
+        length = len(evaluated)
 
-            random_index = random.randint(0, len(evaluated) - 1)
+        n_part = length // 3
 
-            selected_tuple = evaluated[random_index]
-            next_generation.append(selected_tuple[0])
+        part1 = evaluated[: n_part]
+        part2 = evaluated[n_part : n_part * 2]
+        part3 = evaluated[n_part * 2 :]
 
-            evaluated.pop(random_index)
+        while len(next_generation) < max_pup:
+            
+            block = random.randint(1, 3)
+
+            if block == 1:
+                index = random.randint(0, len(part1)-1)
+                selected_tuple = part1[index]
+                next_generation.append(selected_tuple[0])
+                part1.pop(index)
+            
+            if block == 2:
+                index = random.randint(0, len(part2)-1)
+                selected_tuple = part2[index]
+                next_generation.append(selected_tuple[0])
+                part2.pop(index)
+            
+            if block == 3:
+                index = random.randint(0, len(part3)-1)
+                selected_tuple = part3[index]
+                next_generation.append(selected_tuple[0])
+                part3.pop(index)
 
         return next_generation
 
