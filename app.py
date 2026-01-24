@@ -1,122 +1,14 @@
-"""from GeneticAlgorithm import GeneticAlgorithm
-from models.data_init import DataInit
-import numpy as np
-
-
-def func(x):
-    return x * np.cos(x) + np.log((0.1 + np.cos(7*x))) + 2 * np.sin(x/4) + 7 * np.cos(x/8) 
-
-data_init = DataInit(
-    problem_resolution=0.5,
-    a_interval=-1000,
-    b_interval=800,
-    initial_population=10,
-    max_population=20,
-    crossover_threshold=0.25,
-    individual_mutation_threshold=0.2,
-    gene_mutation_threshold=0.25,
-    iterations=400,
-    func=func
-)
-
-genetic = GeneticAlgorithm(data_init=data_init)
-
-system_res, bytes_length = genetic.system_resolution_and_bits()
-print(f"Solucion del sistema: {system_res}, \nNúmero de bytes: {bytes_length} \n")
-
-print("Población inicial:\n")
-population = genetic.generate_initial_population(bytes_length)
-for ind in population:
-    print(ind)
-
-print(f"--- INICIO ---")
-print(f"Población Inicial: {len(population)}")
-
-# Ciclo de Generaciones
-for i in range(data_init.iterations):
-    
-    # 2. Generar Parejas 
-    pairs = genetic.generate_pairs(population)
-    
-    # 3. Cruzar Parejas 
-    offspring = genetic.cross(pairs)
-
-    # 4. Mutar
-    childs = genetic.mutate(offspring)
-    
-    # 4. PODA 
-    population = genetic.prune(population, childs)
-    
-    # --- Reporte de la generación ---
-    # Evaluamos solo al mejor para mostrar progreso
-    best_ind = genetic.evaluate_population([population[0]])[0] # El 0 es el mejor porque prune ya ordenó
-    print(f"Generación {i}: Mejor Fitness = {best_ind[2]:.5f} | Tamaño Pob: {len(population)}")
-
-print("\n--- FIN DEL ALGORITMO ---")
-print(f"Mejor individuo final: {population[0]}")
-print(f"\nFenotipo: {genetic.calculate_phenotype(population[0])}")"""
-
 import matplotlib.pyplot as plt
 import numpy as np
+from matplotlib.animation import FuncAnimation, FFMpegWriter
 from GeneticAlgorithm import GeneticAlgorithm
 from models.data_init import DataInit
 
 def func(x):
-    return x * np.cos(x) + np.log((0.1 + np.cos(7*x))) + 2 * np.sin(x/4) + 7 * np.cos(x/8) 
+    argumento_log = np.abs(0.1 + np.cos(7*x)) + 1e-9
+    return x * np.cos(x) + np.log(argumento_log) + 2 * np.sin(x/4) + 7 * np.cos(x/8) 
 
-def visualizar_generacion(genetic_instance, population, generation, pause_time=0.1):
-    """
-    Grafica la función real, la población actual (puntos azules)
-    y resalta al mejor individuo (estrella roja).
-    """
-    # Limpiamos la figura anterior para la animación
-    plt.clf()
-    
-    # A) Datos para dibujar la CURVA de la función (el paisaje)
-    # Generamos 1000 puntos entre el intervalo A y B para que se vea suave
-    a = genetic_instance.data_init.a_interval
-    b = genetic_instance.data_init.b_interval
-    x_axis = np.linspace(a, b, 1000)
-    y_axis = func(x_axis)
-    
-    plt.plot(x_axis, y_axis, color='gray', alpha=0.5, label='Función Objetivo')
-
-    # B) Datos de la POBLACIÓN (Los exploradores)
-    pop_x = []
-    pop_y = []
-    
-    # Convertimos cada individuo (bits) a fenotipo (x) y calculamos su fitness (y)
-    for ind in population:
-        pheno = genetic_instance.calculate_phenotype(ind)
-        fitness = func(pheno)
-        pop_x.append(pheno)
-        pop_y.append(fitness)
-    
-    # Dibujamos a toda la población como puntos azules
-    plt.scatter(pop_x, pop_y, color='blue', s=30, alpha=0.6, label='Individuos')
-
-    # C) Resaltar al MEJOR CASO (El líder)
-    # Buscamos el índice del valor más alto en pop_y
-    best_idx = np.argmax(pop_y)
-    best_x = pop_x[best_idx]
-    best_y = pop_y[best_idx]
-    
-    plt.scatter(best_x, best_y, color='red', s=150, marker='*', edgecolors='black', label='Mejor Actual')
-    
-    # Decoración de la gráfica
-    plt.title(f"Generación {generation} | Mejor Fitness: {best_y:.4f}")
-    plt.xlabel("Fenotipo (x)")
-    plt.ylabel("Aptitud f(x)")
-    plt.grid(True, linestyle='--', alpha=0.5)
-    plt.legend()
-    
-    # Pausa para generar efecto de animación
-    plt.draw()
-    plt.pause(pause_time)
-
-# --- 3. CONFIGURACIÓN E INICIALIZACIÓN ---
-
-# Nota: Aumenté un poco la población inicial para que se vea mejor en la gráfica
+# --- 1. CONFIGURACIÓN E INICIALIZACIÓN ---
 data_init = DataInit(
     problem_resolution=0.5,
     a_interval=-1000,
@@ -126,49 +18,118 @@ data_init = DataInit(
     crossover_threshold=0.25,
     individual_mutation_threshold=0.3,
     gene_mutation_threshold=0.31,
-    iterations=200, 
+    iterations=50, 
     func=func
 )
 
 genetic = GeneticAlgorithm(data_init=data_init)
 system_res, bytes_length = genetic.system_resolution_and_bits()
 
-print(f"Bytes: {bytes_length} | Resolución: {system_res}")
+print(f"Bytes: {bytes_length} | Resolución del Sistema: {system_res}")
 
-# Generar población inicial
+# --- 2. DATOS PARA LA GRÁFICA DE LA FUNCIÓN ---
+x_axis = np.arange(data_init.a_interval, data_init.b_interval + system_res, system_res)
+y_axis = func(x_axis)
+
+# --- 3. CICLO DE EVOLUCIÓN (Guardando el historial) ---
+history = []
 population = genetic.generate_initial_population(bytes_length)
 
-print(f"--- INICIO DE EVOLUCIÓN ---")
+print("--- CALCULANDO EVOLUCIÓN ---")
 
-# Preparamos la ventana de gráfico
-plt.figure(figsize=(10, 6))
-
-# --- 4. CICLO PRINCIPAL ---
 for i in range(data_init.iterations):
+    evaluated = genetic.evaluate_population(population)
+    pop_x = [ind[1] for ind in evaluated]
+    pop_y = [ind[2] for ind in evaluated]
+    history.append((pop_x, pop_y, i))
     
-    # Lógica del Algoritmo Genético
     pairs = genetic.generate_pairs(population)
     offspring = genetic.cross(pairs)
     childs = genetic.mutate(offspring)
     population = genetic.prune(population, childs)
-    
-    # --- VISUALIZACIÓN ---
-    # Graficamos cada 5 generaciones para que no vaya muy lento
-    # (O cambia el % 5 a % 1 si quieres ver todas)
-    if i % 1 == 0 or i == 0:
-        visualizar_generacion(genetic, population, i)
-        
-        # Reporte en consola
-        best_tuple = genetic.evaluate_population([population[0]])[0]
-        print(f"Gen {i}: Mejor = {best_tuple[2]:.5f} (x={best_tuple[1]:.2f})")
 
-# Mantener la gráfica final abierta
+# Guardar la última generación
+evaluated = genetic.evaluate_population(population)
+history.append(([ind[1] for ind in evaluated], [ind[2] for ind in evaluated], data_init.iterations))
+
+print("--- GENERANDO VIDEO (.mp4) ---")
+
+# --- 4. FUNCIÓN DE ANIMACIÓN DEL PAISAJE ---
+fig, ax = plt.subplots(figsize=(10, 6))
+
+def update(frame):
+    ax.clear()
+    pop_x, pop_y, gen = history[frame]
+    
+    pop_x_arr = np.array(pop_x)
+    pop_y_arr = np.array(pop_y)
+    
+    ax.plot(x_axis, y_axis, color='gray', alpha=0.5, label='Función Objetivo', zorder=1)
+    ax.scatter(pop_x_arr, pop_y_arr, color='blue', s=30, alpha=0.4, label='Población', zorder=2)
+    
+    best_idx = np.argmax(pop_y_arr)
+    worst_idx = np.argmin(pop_y_arr)
+    
+    ax.scatter(pop_x_arr[worst_idx], pop_y_arr[worst_idx], color='red', s=150, marker='X', edgecolors='black', linewidths=1.5, zorder=10, label=f'Peor: {pop_y_arr[worst_idx]:.2f}')
+    ax.scatter(pop_x_arr[best_idx], pop_y_arr[best_idx], color='gold', s=200, marker='*', edgecolors='black', linewidths=1.5, zorder=10, label=f'Mejor: {pop_y_arr[best_idx]:.2f}')
+    
+    ax.set_title(f"Generación {gen} | Mejor Fitness: {pop_y_arr[best_idx]:.4f}")
+    ax.set_xlabel("Fenotipo (x)")
+    ax.set_ylabel("Aptitud f(x)")
+    ax.grid(True, linestyle='--', alpha=0.5)
+    ax.legend(loc='lower right')
+    ax.set_xlim(data_init.a_interval, data_init.b_interval)
+    ax.set_ylim(min(y_axis) - 50, max(y_axis) + 50)
+
+ani = FuncAnimation(fig, update, frames=len(history), repeat=False)
+writer = FFMpegWriter(fps=2)
+ani.save("evolucion_lenta.mp4", writer=writer)
+
+print("--- GENERANDO GRÁFICA DE CONVERGENCIA ---")
+
+# --- 5. GRÁFICA DE LÍNEAS DE APTITUD (NUEVO) ---
+# Extraemos los datos del historial
+generaciones = []
+mejores = []
+peores = []
+promedios = []
+
+for pop_x, pop_y, gen in history:
+    mejor = np.max(pop_y)
+    peor = np.min(pop_y)
+    promedio_dos = (mejor + peor) / 2 # Promedio entre el mejor y el peor
+    
+    generaciones.append(gen)
+    mejores.append(mejor)
+    peores.append(peor)
+    promedios.append(promedio_dos)
+
+# Crear la gráfica estática
+plt.figure(figsize=(10, 6))
+plt.plot(generaciones, mejores, color='gold', linewidth=2, label='Mejor Aptitud', marker='o', markersize=4)
+plt.plot(generaciones, peores, color='red', linewidth=2, label='Peor Aptitud', marker='x', markersize=4)
+plt.plot(generaciones, promedios, color='blue', linestyle='--', linewidth=2, label='Promedio (Mejor y Peor)')
+
+plt.title('Evolución de la Aptitud por Generación')
+plt.xlabel('Generación')
+plt.ylabel('Aptitud f(x)')
+plt.grid(True, linestyle='--', alpha=0.7)
+plt.legend(loc='best')
+plt.tight_layout()
+
+# Guardar la gráfica como imagen PNG
+plt.savefig('convergencia_ga.png')
+print("La gráfica de convergencia se guardó como 'convergencia_ga.png'")
+
+
 print("\n--- FIN DEL ALGORITMO ---")
-best = population[0]
-best_x = genetic.calculate_phenotype(best)
-best_a = func(best_x)
+
+# --- 6. IMPRIMIR EL MEJOR INDIVIDUO FINAL ---
+evaluated.sort(key=lambda x: x[2], reverse=True)
+best = evaluated[0][0]
+best_x = evaluated[0][1]
+best_a = evaluated[0][2]
 
 print(f"Mejor individuo final: {best}")
 print(f"\nFenotipo: {best_x}")
 print(f"\nAptitud: {best_a}")
-plt.show()
